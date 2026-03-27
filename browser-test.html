@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Supabase - Debug</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Teste de Conexão Supabase</h1>
+    <div id="results"></div>
+    
+    <script>
+        const { createClient } = supabase;
+        
+        const supabaseUrl = 'https://onqxspbszibcyemsuhoa.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ucXhzcGJzemliY3llbXN1aG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjA5OTU1NzEsImV4cCI6MjAzNjU3MTU3MX0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+        
+        const client = createClient(supabaseUrl, supabaseKey);
+        
+        const resultsDiv = document.getElementById('results');
+        
+        function log(message, data = null) {
+            console.log(message, data);
+            const p = document.createElement('p');
+            p.innerHTML = `<strong>${message}</strong>`;
+            if (data) {
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(data, null, 2);
+                p.appendChild(pre);
+            }
+            resultsDiv.appendChild(p);
+        }
+        
+        async function testSupabase() {
+            log('🔍 Iniciando teste de conexão com Supabase...');
+            
+            try {
+                // Teste 1: Verificar usuário atual
+                log('\n👤 Verificando usuário atual...');
+                const { data: { user }, error: userError } = await client.auth.getUser();
+                
+                if (userError) {
+                    log('❌ Erro ao verificar usuário:', userError);
+                } else if (user) {
+                    log('✅ Usuário logado:', { id: user.id, email: user.email });
+                    
+                    // Teste 2: Buscar perfil do usuário logado
+                    log('\n📋 Buscando perfil do usuário...');
+                    const { data: profile, error: profileError } = await client
+                        .from('profiles')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .single();
+                    
+                    if (profileError) {
+                        log('❌ Erro ao buscar perfil:', {
+                            message: profileError.message,
+                            details: profileError.details,
+                            hint: profileError.hint,
+                            code: profileError.code
+                        });
+                    } else {
+                        log('✅ Perfil encontrado:', profile);
+                    }
+                } else {
+                    log('ℹ️ Nenhum usuário logado');
+                }
+                
+                // Teste 3: Consulta geral na tabela profiles (sem filtro de usuário)
+                log('\n📊 Testando consulta geral na tabela profiles...');
+                const { data: profiles, error: generalError } = await client
+                    .from('profiles')
+                    .select('id, name, role')
+                    .limit(3);
+                
+                if (generalError) {
+                    log('❌ Erro na consulta geral:', {
+                        message: generalError.message,
+                        details: generalError.details,
+                        hint: generalError.hint,
+                        code: generalError.code
+                    });
+                } else {
+                    log('✅ Consulta geral bem-sucedida:', {
+                        count: profiles?.length || 0,
+                        data: profiles
+                    });
+                }
+                
+                // Teste 4: Verificar políticas RLS
+                log('\n🔒 Testando políticas RLS...');
+                const { data: policies, error: policyError } = await client
+                    .rpc('get_table_policies', { table_name: 'profiles' })
+                    .select();
+                
+                if (policyError) {
+                    log('ℹ️ Não foi possível verificar políticas RLS:', policyError.message);
+                } else {
+                    log('📋 Políticas RLS encontradas:', policies);
+                }
+                
+            } catch (error) {
+                log('💥 Erro inesperado:', error);
+            }
+        }
+        
+        // Executar teste automaticamente
+        testSupabase();
+        
+        // Disponibilizar funções globalmente para teste manual
+        window.testSupabase = testSupabase;
+        window.supabaseClient = client;
+        
+        log('\n🛠️ Funções disponíveis no console:');
+        log('- testSupabase(): Executar todos os testes novamente');
+        log('- supabaseClient: Cliente Supabase para testes manuais');
+    </script>
+</body>
+</html>
