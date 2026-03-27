@@ -14,9 +14,6 @@ if ('serviceWorker' in navigator) {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // Nova versão disponível - notificação mais suave
-                console.log('Nova versão da aplicação disponível');
-
                 // Criar notificação discreta em vez de popup invasivo
                 const updateBanner = document.createElement('div');
                 updateBanner.innerHTML = `

@@ -69,9 +69,7 @@ export const useOTP = (): UseOTPReturn => {
       // Simular envio de OTP (em produção, usar serviço real como Twilio)
       // Por enquanto, vamos apenas gerar um código e mostrar no console
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      console.log(`[SIMULAÇÃO OTP] Código para ${phoneE164}: ${otpCode}`);
-      
+
       // Armazenar temporariamente no localStorage para simulação
       localStorage.setItem(`otp_${phoneE164}`, otpCode);
       localStorage.setItem(`otp_${phoneE164}_expires`, (Date.now() + 5 * 60 * 1000).toString()); // 5 minutos

@@ -55,15 +55,12 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
           const currentIsAdmin = profile?.role === 'admin';
 
           if (shouldBeAdmin && !currentIsAdmin) {
-            console.log("Fixing role mismatch: User is", dbRole, "but profile is", profile?.role);
-
             const { error: updateError } = await supabase
               .from('profiles')
               .update({ role: 'admin' })
               .eq('user_id', user.id);
 
             if (!updateError) {
-              console.log("Role fixed successfully");
               await refreshProfile();
               toast({
                 title: "Permissões atualizadas",
@@ -101,8 +98,6 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
 
         // If NO admins exist, this is a headless state. Promote current user.
         if (count === 0) {
-          console.log("Headless state detected! Promoting current user to admin.");
-
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ role: 'admin' })

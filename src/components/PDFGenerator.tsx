@@ -26,8 +26,6 @@ interface AppointmentData {
 }
 
 export const generatePDFReceipt = async (appointment: AppointmentData) => {
-  console.log('Gerando PDF com dados:', appointment);
-
   try {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -50,7 +48,7 @@ export const generatePDFReceipt = async (appointment: AppointmentData) => {
           img.src = appointment.barbearia?.logo_url || '';
         });
       } catch (error) {
-        console.log('Erro ao carregar logo da barbearia:', error);
+        // Erro silencio - logo é opcional
       }
     }
   };
@@ -234,7 +232,6 @@ export const generatePDFReceipt = async (appointment: AppointmentData) => {
 
     // Save the PDF
     const fileName = `comprovante-agendamento-${appointment.id ? appointment.id.substring(0, 8) : 'agendamento'}.pdf`;
-    console.log('Salvando PDF:', fileName);
     doc.save(fileName);
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
