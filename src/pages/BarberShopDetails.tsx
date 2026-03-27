@@ -555,6 +555,15 @@ const BarberShopDetails = () => {
 
   const handleNextStep = () => {
     if (currentStep === 'service' && selectedService) {
+      if (!isClientLoggedIn) {
+        toast({
+          title: "Login necessário",
+          description: "Faça login para continuar com o agendamento.",
+          variant: "default",
+        });
+        navigate('/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search));
+        return;
+      }
       setCurrentStep('datetime');
     } else if (currentStep === 'datetime' && selectedDate && selectedTime) {
       setCurrentStep('client');

@@ -11,7 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, Lock, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useResponsive, useResponsiveClasses } from "@/hooks/use-mobile";
@@ -29,17 +29,16 @@ export default function Login() {
 	const responsive = useResponsiveClasses();
 	const navigate = useNavigate();
 	const { toast } = useToast();
+	const [searchParams] = useSearchParams();
+	const redirect = searchParams.get("redirect");
 
 	// Redireciona baseado na role do usuário
 	useEffect(() => {
 		if (!authLoading && user && role) {
-			if (role === 'cliente') {
-				navigate("/client-panel");
-			} else if (role === 'funcionario' || role === 'admin') {
-				navigate("/dashboard");
-			}
+			const destination = redirect || (role === 'cliente' ? "/client-panel" : "/dashboard");
+			navigate(destination);
 		}
-	}, [user, authLoading, role, navigate]);
+	}, [user, authLoading, role, navigate, redirect]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
