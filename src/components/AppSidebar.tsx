@@ -12,7 +12,8 @@ import {
   User,
   CreditCard,
   ChevronUp,
-  DollarSign
+  DollarSign,
+  Plane
 } from "lucide-react";
 import {
   Sidebar,
@@ -78,6 +79,11 @@ const adminMenuItems = [
     title: "Feedbacks",
     url: "/dashboard/feedbacks",
     icon: MessageSquare,
+  },
+  {
+    title: "Férias/Ausências",
+    url: "/dashboard/ferias",
+    icon: Plane,
   },
 ];
 

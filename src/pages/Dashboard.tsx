@@ -82,9 +82,22 @@ const fetchBarbeariaData = async (userId: string) => {
   
   if (funcionariosError) throw funcionariosError;
 
+  const { data: barbeariaInfo, error: barbeariaError } = await supabase
+    .from('barbearias')
+    .select('endereco, nome')
+    .eq('id', barbeariaId)
+    .single();
+
+  const { count: servicos_total, error: servicosError } = await supabase
+    .from('servicos')
+    .select('*', { count: 'exact', head: true })
+    .eq('barbearia_id', barbeariaId);
+
   return { 
     agendamentos: agendamentos || [], 
-    funcionarios_total: funcionarios_total || 0 
+    funcionarios_total: funcionarios_total || 0,
+    barbeariaInfo: barbeariaInfo || null,
+    servicos_total: servicos_total || 0
   };
 };
 
@@ -381,7 +394,13 @@ export default function Dashboard() {
       };
     }
 
-    const todosAgendamentos = data?.agendamentos || [];
+    let todosAgendamentos = data?.agendamentos || [];
+
+    // Se for funcionário (não admin), filtrar apenas seus agendamentos para ver SUA comissão e movimentos
+    if (role === 'funcionario' && currentFuncionario) {
+      todosAgendamentos = todosAgendamentos.filter((ag: any) => ag.funcionario_id === currentFuncionario.id);
+    }
+
       const hoje = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
@@ -421,7 +440,7 @@ export default function Dashboard() {
         servicos_populares: servicosPopulares
       }
     };
-  }, [data]);
+  }, [data, currentFuncionario, role]);
 
   const handleUpdateStatus = (appointmentId: string, status: 'finalizado' | 'cancelado') => {
     updateStatusMutation.mutate({ appointmentId, status });
@@ -462,9 +481,9 @@ export default function Dashboard() {
       color: "text-primary"
     },
     {
-      title: "Receita do Mês",
+      title: role === 'admin' ? "Receita do Mês" : "Sua Comissão",
       value: `R$ ${stats.receita_mes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      change: "+15% vs mês anterior", // Placeholder
+      change: role === 'admin' ? "+15% vs mês anterior" : "Baseado em seus serviços",
       icon: DollarSign,
       color: "text-green-500"
     },
@@ -599,6 +618,21 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
+
+        {/* Alerta de Configuração Incompleta para Novos Barbeiros */}
+        {role === 'admin' && data && (!data.barbeariaInfo?.endereco || data.servicos_total === 0) && (
+          <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 rounded-r-md flex items-start gap-3">
+            <Star className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <div>
+              <h3 className="text-yellow-800 dark:text-yellow-400 font-medium">Ação Necessária para Aparecer no Aplicativo:</h3>
+              <p className="text-yellow-700/80 dark:text-yellow-500/80 text-sm mt-1">
+                Sua barbearia ainda não está visível para os clientes no catálogo. Para aparecer, é obrigatório registrar 
+                {!data.barbeariaInfo?.endereco && " um Endereço nas Configurações"}{!data.barbeariaInfo?.endereco && data.servicos_total === 0 && " e "}
+                {data.servicos_total === 0 && " pelo menos 1 Serviço (na aba Serviços)"}.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className={`${isMobile ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'}`}>

@@ -49,6 +49,7 @@ const MyAppointments = lazy(() => import("./pages/MyAppointments"));
 const MyRewards = lazy(() => import("./pages/MyRewards"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const Comissoes = lazy(() => import("./pages/Comissoes"));
+const Ferias = lazy(() => import("./pages/Ferias"));
 
 
 const queryClient = new QueryClient();
@@ -130,6 +131,14 @@ const App = () => (
 									element={
 										<ProtectedRoute requiredRole="funcionario">
 											<Agenda />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/dashboard/ferias"
+									element={
+										<ProtectedRoute requiredRole="admin">
+											<Ferias />
 										</ProtectedRoute>
 									}
 								/>

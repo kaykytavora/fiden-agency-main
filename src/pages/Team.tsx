@@ -68,7 +68,8 @@ export default function Team() {
     email: "",
     senha: "",
     especialidade: "",
-    nivel_permissao: "funcionario" as 'funcionario' | 'gerente' | 'dono'
+    nivel_permissao: "funcionario" as 'funcionario' | 'gerente' | 'dono',
+    foto_url: ""
   });
 
   // Helper functions (moved up to be accessible)
@@ -121,7 +122,7 @@ export default function Team() {
   };
 
   const resetForm = () => {
-    setFormData({ nome: "", email: "", senha: "", especialidade: "", nivel_permissao: "funcionario" });
+    setFormData({ nome: "", email: "", senha: "", especialidade: "", nivel_permissao: "funcionario", foto_url: "" });
     setEditingEmployee(null);
   };
 
@@ -129,19 +130,11 @@ export default function Team() {
     if (!user) return;
 
     try {
-      // Buscar dados do funcionário logado
-      const { data: funcData } = await supabase.rpc('get_funcionario_data', { 
-        user_uuid: user.id 
-      }) as { data: any };
+      const { data: barbeariaId, error: rpcError } = await supabase.rpc('get_user_barbearia_id', { user_uuid: user.id });
 
-      // A função retorna uma tabela (array), então pegamos o primeiro elemento
-      const funcRecord = Array.isArray(funcData) ? funcData[0] : funcData;
-
-      if (!funcRecord || !funcRecord.barbearia_id) {
-        throw new Error("Você não está vinculado a uma barbearia como funcionário.");
+      if (rpcError || !barbeariaId) {
+        throw new Error(rpcError?.message || "Usuário não está associado a uma barbearia.");
       }
-
-      const barbeariaId = funcRecord.barbearia_id;
 
       // Buscar funcionários ativos
       const { data: employeesData, error: employeesError } = await supabase
@@ -273,64 +266,99 @@ export default function Team() {
         });
       }
     } else {
-      // --- MODO CRIAÇÃO (CADASTRO DIRETO - SEM CONTA) ---
+      // --- MODO CRIAÇÃO (DIRETO) ---
       try {
-        // Buscar barbearia do usuário atual
-        const { data: barbeariaId, error: rpcError } = await supabase.rpc('get_user_barbearia_id', { user_uuid: user!.id });
-
-        if (rpcError) {
-          console.error('Erro ao buscar barbearia:', rpcError);
-          throw new Error("Erro ao buscar barbearia. Verifique se você está associado a uma barbearia.");
+        if (!formData.senha || formData.senha.length < 6) {
+          throw new Error("A senha do funcionário deve ter pelo menos 6 caracteres.");
         }
+
+        const barbeariaId = (await supabase.rpc('get_user_barbearia_id', { user_uuid: user!.id })).data;
 
         if (!barbeariaId) {
-          throw new Error("Você não está associado a uma barbearia. Cadastre uma barbearia primeiro.");
+          throw new Error("Usuário não associado a uma barbearia");
         }
 
-        // Criar funcionário vinculado à barbearia (SEM criar conta no auth)
-        const { error: employeeError } = await supabase
-          .from('funcionarios')
+        const funcionarioData = {
+          nome: formData.nome,
+          especialidade: formData.especialidade,
+          nivel_permissao: uiToDbPermission(formData.nivel_permissao),
+          foto_url: formData.foto_url,
+        };
+
+        // 1. Criar o convite no banco silenciosamente para o trigger handle_new_user localizar e autorizar a nova conta
+        const { data: conviteData, error: conviteError } = await supabase
+          .from('funcionario_convites')
           .insert({
+            email: formData.email,
             barbearia_id: barbeariaId,
-            user_id: null, // Sem conta no sistema
-            nome: formData.nome,
-            email: formData.email || null,
-            especialidade: formData.especialidade || null,
-            nivel: uiToDbPermission(formData.nivel_permissao),
-            is_owner: false
+            funcionario_data: funcionarioData,
+            created_by: user!.id,
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+            usado: false
+          })
+          .select()
+          .single();
+
+        if (conviteError) throw conviteError;
+
+        // 2. Criar uma instância secundária do Supabase Auth para criar o funcionário SEM deslogar o admin
+        import('@supabase/supabase-js').then(async ({ createClient }) => {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+          
+          const adminClient = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+            }
           });
 
-        if (employeeError) {
-          console.error("Erro ao criar funcionário:", employeeError);
-          throw new Error(`Erro ao criar registro de funcionário: ${employeeError.message}`);
-        }
+          const { error: signUpError } = await adminClient.auth.signUp({
+            email: formData.email,
+            password: formData.senha,
+            options: {
+              data: {
+                role: 'funcionario',
+                name: formData.nome,
+                phone: '' // Pode preencher com telefone depois se necessário
+              }
+            }
+          });
 
-        toast({
-          title: "Funcionário cadastrado!",
-          description: `Conta criada para ${formData.email} e vinculada à sua barbearia. O perfil será criado automaticamente no primeiro acesso.`,
+          if (signUpError) {
+             // Rollback: apagar o convite silencioso
+             await supabase.from('funcionario_convites').delete().eq('id', conviteData.id);
+             
+             toast({
+               title: "❌ Erro no cadastro do Supabase",
+               description: signUpError.message,
+               variant: "destructive"
+             });
+             return;
+          }
+
+          toast({
+            title: "✅ Funcionário cadastrado!",
+            description: `A conta de ${formData.nome} foi criada com sucesso. Ele já pode fazer login no sistema com o e-mail e a senha informados.`,
+          });
+
+          setIsDialogOpen(false);
+          resetForm();
+          loadEmployees();
+        }).catch(err => {
+          console.error("Erro ao criar infraestrutura secundária:", err);
+          toast({
+            title: "❌ Erro no sistema",
+            description: "Erro de infraestrutura ao criar usuário.",
+            variant: "destructive"
+          });
         });
-
-        setIsDialogOpen(false);
-        resetForm();
-        loadEmployees();
 
       } catch (error: unknown) {
         console.error('Erro ao cadastrar funcionário:', error);
-        let errorMessage = "Erro ao cadastrar funcionário";
-
-        if (error instanceof Error) {
-          if (error.message.includes("already registered")) {
-            errorMessage = "Este e-mail já está cadastrado no sistema.";
-          } else if (error.message.includes("Invalid email")) {
-            errorMessage = "E-mail inválido. Verifique o endereço.";
-          } else {
-            errorMessage = error.message;
-          }
-        }
-
         toast({
-          title: "Erro",
-          description: errorMessage,
+          title: "❌ Erro no cadastro",
+          description: error instanceof Error ? error.message : "Erro desconhecido",
           variant: "destructive"
         });
       }
@@ -344,7 +372,8 @@ export default function Team() {
       email: employee.email || "",
       senha: "",
       especialidade: employee.especialidade || "",
-      nivel_permissao: dbToUiPermission(employee.nivel_permissao)
+      nivel_permissao: dbToUiPermission(employee.nivel_permissao),
+      foto_url: employee.foto_url || ""
     });
     setIsDialogOpen(true);
   };
@@ -407,12 +436,35 @@ export default function Team() {
           description: "Você foi removido da lista de funcionários. Seu acesso administrativo permanece ativo."
         });
       } else {
-        // Se for outro funcionário, usa a edge function para limpar tudo (auth + dados)
-        const { error } = await supabase.functions.invoke('delete-employee', {
-          body: { employee_user_id: employee.user_id }
-        });
+        // Tentar desvincular o funcionário de agendamentos pendentes para evitar erro de Foreign Key
+        await supabase
+          .from('agendamentos')
+          .update({ funcionario_id: null })
+          .eq('funcionario_id', employee.id);
 
-        if (error) throw error;
+        // Deletar da tabela de funcionários
+        const { error: deleteEmpError } = await supabase
+          .from('funcionarios')
+          .delete()
+          .eq('id', employee.id);
+
+        if (deleteEmpError) {
+          if (deleteEmpError.message.includes('foreign key constraint') || deleteEmpError.code === '23503') {
+            throw new Error("Não é possível excluir este funcionário pois ele possui registros financeiros (atendimentos finalizados) vinculados ao seu histórico. Sugerimos editar o funcionário e inativá-lo caso exista essa opção.");
+          }
+          throw deleteEmpError;
+        }
+
+        // Se o funcionário possuir um email registrado, limpamos o usuário e o profile do sistema
+        if (employee.email) {
+          const { error: rpcError } = await supabase.rpc('delete_user_complete', {
+            user_email: employee.email
+          });
+          
+          if (rpcError) {
+             console.error("Erro ao limpar dados de autenticação do usuário via RPC:", rpcError);
+          }
+        }
 
         toast({
           title: "Sucesso",
@@ -441,17 +493,9 @@ export default function Team() {
         throw new Error("Usuário não está associado a uma barbearia.");
       }
 
-      // Check directly in database if user already exists in funcionarios table
-      const { data: existingFuncionario, error: checkError } = await supabase
-        .from('funcionarios')
-        .select('id, nome, nivel, is_owner')
-        .eq('user_id', user.id)
-        .eq('barbearia_id', barbeariaId)
-        .limit(1);
-
-      if (checkError) throw checkError;
-
-      if (existingFuncionario && existingFuncionario.length > 0) {
+      // Check if already exists (double check)
+      const isAlreadyEmployee = employees.some(e => e.user_id === user.id);
+      if (isAlreadyEmployee) {
         toast({
           title: "Aviso",
           description: "Você já está cadastrado como funcionário.",
@@ -460,6 +504,7 @@ export default function Team() {
       }
 
       // Insert into funcionarios table
+      // Note: We don't need to create a user account because the user already exists
       const { error } = await supabase
         .from('funcionarios')
         .insert({
@@ -468,22 +513,11 @@ export default function Team() {
           nome: user.user_metadata.full_name || user.email?.split('@')[0] || "Dono",
           email: user.email,
           especialidade: "Dono / Gerente",
-          nivel: 'dono',
-          is_owner: true,
+          nivel: 'dono', // Using 'dono' as per enum
           foto_url: user.user_metadata.avatar_url
         });
 
-      if (error) {
-        // If error is about duplicate key, just show the warning
-        if (error.code === '23505') {
-          toast({
-            title: "Aviso",
-            description: "Você já está cadastrado como funcionário.",
-          });
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       // Update profiles table to set role to 'admin'
       const { error: updateProfileError } = await supabase
@@ -499,6 +533,7 @@ export default function Team() {
           variant: "destructive"
         });
       } else {
+        // Refresh profile to update UI immediately
         await refreshProfile();
       }
 
@@ -557,13 +592,13 @@ export default function Team() {
                   {editingEmployee ? "Editar Funcionário" : "Cadastrar Funcionário"}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-md mx-auto">
+              <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-lg sm:text-xl">
                     {editingEmployee ? "Editar Funcionário" : "Cadastrar Novo Funcionário"}
                   </DialogTitle>
                   <DialogDescription className="text-sm sm:text-base">
-                    {editingEmployee ? "Edite as informações do funcionário" : "Cadastre um novo funcionário para aparecer na agenda"}
+                    {editingEmployee ? "Edite as informações do funcionário" : "Cadastre o funcionário e escolha sua senha de acesso inicial."}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
@@ -580,16 +615,33 @@ export default function Team() {
                   </div>
 
                   <div>
-                    <Label htmlFor="email" className="text-sm sm:text-base">Email (opcional)</Label>
+                    <Label htmlFor="email" className="text-sm sm:text-base">E-mail de acesso *</Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="Email para contato"
+                      placeholder="email@exemplo.com"
                       className="text-sm sm:text-base"
+                      required
+                      disabled={!!editingEmployee}
                     />
                   </div>
+
+                  {!editingEmployee && (
+                    <div>
+                      <Label htmlFor="senha" className="text-sm sm:text-base">Senha de acesso (Mínimo 6 caracteres) *</Label>
+                      <Input
+                        id="senha"
+                        type="password"
+                        value={formData.senha}
+                        onChange={(e) => setFormData(prev => ({ ...prev, senha: e.target.value }))}
+                        placeholder="Ex: mudar123"
+                        className="text-sm sm:text-base"
+                        required
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="especialidade" className="text-sm sm:text-base">Especialidade</Label>
@@ -635,12 +687,23 @@ export default function Team() {
                     </AnimatePresence>
                   </div>
 
+                  <div>
+                    <Label htmlFor="foto_url" className="text-sm sm:text-base">URL da foto (opcional)</Label>
+                    <Input
+                      id="foto_url"
+                      value={formData.foto_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, foto_url: e.target.value }))}
+                      placeholder="https://..."
+                      className="text-sm sm:text-base"
+                    />
+                  </div>
+
                   <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto text-sm sm:text-base">
                       Cancelar
                     </Button>
                     <Button type="submit" className="w-full sm:w-auto text-sm sm:text-base">
-                      {editingEmployee ? "Atualizar" : "Cadastrar"}
+                      {editingEmployee ? "Atualizar" : "Cadastrar Funcionário"}
                     </Button>
                   </DialogFooter>
                 </form>
