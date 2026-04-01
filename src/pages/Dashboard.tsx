@@ -11,6 +11,7 @@ import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { Link, useNavigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useResponsive, useResponsiveClasses } from "@/hooks/use-mobile";
+import { RescheduleModal } from "@/components/RescheduleModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,6 +113,7 @@ export default function Dashboard() {
   const [isPaused, setIsPaused] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pauseData, setPauseData] = useState<PauseData>({ inicio: '', fim: '', motivo: '' });
+  const [rescheduleData, setRescheduleData] = useState<{ id: string; date: string } | null>(null);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [isOwnerEmployee, setIsOwnerEmployee] = useState(false);
 
@@ -127,15 +129,12 @@ export default function Dashboard() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ appointmentId, status }: { appointmentId: string, status: 'finalizado' | 'cancelado' }) => {
+    mutationFn: async ({ appointmentId, status }: { appointmentId: string, status: 'confirmado' | 'finalizado' | 'cancelado' }) => {
       const { error } = await supabase
         .from('agendamentos')
         .update({ status })
         .eq('id', appointmentId);
       if (error) throw error;
-
-      // Feedback não é mais criado automaticamente
-      // O cliente deve avaliar manualmente se desejar
 
       return status;
     },
@@ -143,7 +142,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
       toast({
         title: "Sucesso!",
-        description: `Agendamento ${status === 'finalizado' ? 'finalizado' : 'cancelado'} com sucesso.`,
+        description: `Agendamento ${status} com sucesso.`,
       });
     },
     onError: (error: unknown) => {
@@ -516,6 +515,8 @@ export default function Dashboard() {
         return 'text-green-500 border-green-500/50 bg-green-500/10';
       case 'pendente':
         return 'text-yellow-500 border-yellow-500/50 bg-yellow-500/10';
+      case 'aguardando_cliente':
+        return 'text-blue-500 border-blue-500/50 bg-blue-500/10';
       case 'cancelado':
         return 'text-red-500 border-red-500/50 bg-red-500/10';
       case 'finalizado':
@@ -531,6 +532,8 @@ export default function Dashboard() {
         return 'Confirmado';
       case 'pendente':
         return 'Pendente';
+      case 'aguardando_cliente':
+        return 'Aguardando Cliente';
       case 'cancelado':
         return 'Cancelado';
       case 'finalizado':
@@ -541,6 +544,7 @@ export default function Dashboard() {
   };
 
   const statusOrder: { [key: string]: number } = {
+    aguardando_cliente: 0,
     pendente: 1,
     confirmado: 2,
     finalizado: 3,
@@ -771,8 +775,18 @@ export default function Dashboard() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.id, 'finalizado')}>
-                              Finalizar
+                            {appointment.status === 'pendente' && (
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.id, 'confirmado')}>
+                                Aprovar Cliente
+                              </DropdownMenuItem>
+                            )}
+                            {(appointment.status === 'confirmado' || appointment.status === 'pendente') && (
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.id, 'finalizado')}>
+                                Finalizar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => setRescheduleData({ id: appointment.id, date: appointment.data_hora })}>
+                              Remarcar / Reajustar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.id, 'cancelado')}>
                               Cancelar
@@ -1093,6 +1107,15 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <RescheduleModal 
+        isOpen={!!rescheduleData}
+        onOpenChange={(open) => {
+          if (!open) setRescheduleData(null);
+        }}
+        appointmentId={rescheduleData?.id || null}
+        currentDate={rescheduleData?.date || null}
+      />
     </DashboardLayout>
   );
 }

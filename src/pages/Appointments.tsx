@@ -539,8 +539,7 @@ export default function Appointments() {
 																		<AlertDialogDescription>
 																			Marcar este agendamento como
 																			finalizado irá adicioná-lo ao
-																			histórico e liberar pontos de
-																			fidelidade para o cliente.
+																			histórico de atendimentos do salão.
 																		</AlertDialogDescription>
 																	</AlertDialogHeader>
 																	<AlertDialogFooter>

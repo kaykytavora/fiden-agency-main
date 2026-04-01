@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { Users, TrendingUp, Plus, Edit, Save } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Users, TrendingUp, Plus, Edit, Save, User } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface Funcionario {
@@ -26,10 +26,12 @@ interface Atendimento {
   valor: number;
   comissao_percentual: number;
   comissao_valor: number;
+  funcionario_id: string;
 }
 
 export default function Comissoes() {
   const { barbeariaId } = useUserRole();
+  const { toast } = useToast();
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +109,7 @@ export default function Comissoes() {
       .from('funcionarios_atendimentos' as any)
       .insert({
         barbearia_id: barbeariaId,
+        funcionario_id: selectedFuncionarioId,
         servico_nome: formData.servico_nome,
         cliente_nome: formData.cliente_nome,
         valor: valor,
@@ -260,7 +263,7 @@ export default function Comissoes() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
+                  <TableHead>Data / Profissional</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Serviço</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
@@ -268,15 +271,24 @@ export default function Comissoes() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {atendimentos.map((att) => (
+                {atendimentos.map((att) => {
+                  const profNome = funcionarios.find(f => f.id === att.funcionario_id)?.nome || '-';
+                  return (
                   <TableRow key={att.id}>
-                    <TableCell>{new Date(att.data_atendimento).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{new Date(att.data_atendimento + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <User className="w-3 h-3" />
+                        {profNome}
+                      </div>
+                    </TableCell>
                     <TableCell>{att.cliente_nome || '-'}</TableCell>
                     <TableCell>{att.servico_nome || '-'}</TableCell>
                     <TableCell className="text-right">R$ {att.valor.toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-green-600">R$ {att.comissao_valor.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-green-600 font-medium">R$ {att.comissao_valor.toFixed(2)}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {atendimentos.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">

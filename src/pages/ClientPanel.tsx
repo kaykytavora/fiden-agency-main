@@ -798,14 +798,7 @@ const ClientPanel = () => {
 									<History className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
 									Histórico Completo
 								</Button>
-								<Button
-									variant="outline"
-									className={`w-full ${isMobile ? 'text-sm py-2' : ''}`}
-									onClick={() => navigate("/minhas-recompensas")}
-								>
-									<Gift className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
-									Minhas Recompensas
-								</Button>
+
 								<Button
 									variant="outline"
 									className={`w-full ${isMobile ? 'text-sm py-2' : ''}`}
