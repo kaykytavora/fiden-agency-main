@@ -21,7 +21,7 @@ import {
 const BookingConfirmation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { isMobile } = useResponsive();
   const confirmationRef = useRef<HTMLDivElement>(null);
   
@@ -219,19 +219,19 @@ const BookingConfirmation = () => {
           {/* Botões condicionais baseados no tipo de usuário */}
           {isUserAuthenticated ? (
             <>
-              {/* Usuário Autenticado: Voltar para Meu Painel */}
-              <Button 
-                variant="premium" 
+              {/* Usuário Autenticado: Voltar para Home */}
+              <Button
+                variant="premium"
                 className={`w-full ${isMobile ? 'h-10 text-sm' : ''}`}
-                onClick={() => navigate('/dashboard/client-panel')}
+                onClick={() => navigate('/')}
               >
-                <UserCircle className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} mr-2`} />
-                Voltar para Meu Painel
+                <MapPin className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} mr-2`} />
+                Voltar para Home
               </Button>
-              
+
               {/* Usuário Autenticado: Fazer Novo Agendamento também */}
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className={`w-full ${isMobile ? 'h-10 text-sm' : ''}`}
                 onClick={() => navigate('/barbearias')}
               >

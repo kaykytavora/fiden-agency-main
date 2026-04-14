@@ -135,12 +135,7 @@ const Booking = () => {
         action: <CheckCircle className="text-green-500" />,
       });
 
-      // Redirecionar baseado no status do usuário
-      if (user) {
-        navigate('/client-panel');
-      } else {
-        navigate('/barbearias');
-      }
+      navigate('/');
 
     } catch (error) {
       console.error("Erro ao criar agendamento:", error);

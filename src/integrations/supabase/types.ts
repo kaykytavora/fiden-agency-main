@@ -27,7 +27,7 @@ export type Database = {
           id: string
           origem: string | null
           servico_id: string
-          status: Database["public"]["Enums"]["agendamento_status"]
+          status: Database["public"]["Enums"]["agendamento_status"] | "aguardando_cliente"
           updated_at: string
           user_id: string | null
         }
@@ -43,7 +43,7 @@ export type Database = {
           id?: string
           origem?: string | null
           servico_id: string
-          status?: Database["public"]["Enums"]["agendamento_status"]
+          status?: Database["public"]["Enums"]["agendamento_status"] | "aguardando_cliente"
           updated_at?: string
           user_id?: string | null
         }
@@ -59,7 +59,7 @@ export type Database = {
           id?: string
           origem?: string | null
           servico_id?: string
-          status?: Database["public"]["Enums"]["agendamento_status"]
+          status?: Database["public"]["Enums"]["agendamento_status"] | "aguardando_cliente"
           updated_at?: string
           user_id?: string | null
         }
@@ -1314,7 +1314,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      agendamento_status: ["pendente", "confirmado", "cancelado", "finalizado"],
+      agendamento_status: ["pendente", "confirmado", "cancelado", "finalizado", "aguardando_cliente"],
       metodo_pagamento: [
         "cartao_credito",
         "cartao_debito",

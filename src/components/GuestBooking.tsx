@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,7 @@ interface GuestBookingProps {
 }
 
 export const GuestBooking = ({ barbershopId, barbershopName, services, employees }: GuestBookingProps) => {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedService, setSelectedService] = useState("");
@@ -106,7 +108,7 @@ export const GuestBooking = ({ barbershopId, barbershopName, services, employees
             cliente_email: customerEmail || null,
             data_hora: dateTimeString,
             user_id: null,
-            status: 'confirmado',
+            status: 'pendente',
             avaliado: false,
           }
         ]);
@@ -129,18 +131,8 @@ export const GuestBooking = ({ barbershopId, barbershopName, services, employees
         description: "Seu agendamento foi criado com sucesso. Você receberá uma confirmação em breve.",
       });
 
-      // Invalidate queries to update available slots
-      queryClient.invalidateQueries({ queryKey: ['barbershop', barbershopId] });
-
-      // Reset form
-      setSelectedDate(undefined);
-      setSelectedTime("");
-      setSelectedService("");
-      setSelectedEmployee("");
-      setCustomerName("");
-      setCustomerPhone("");
-      setCustomerEmail("");
-      setLimitValidation(null);
+      // Navigate to home after successful booking
+      navigate('/');
 
     } catch (error) {
       console.error('Erro inesperado:', error);

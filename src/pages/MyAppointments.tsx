@@ -7,9 +7,8 @@ import { Badge } from "@/components/ui/badge";
 
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, CheckCircle, Clock, MapPin, Search, User, XCircle, Clock3, Calendar, Filter, Download, ArrowRightLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, MapPin, Search, User, XCircle, Clock3, Calendar, Filter, Download } from "lucide-react";
 import { generatePDFReceipt } from "@/components/PDFGenerator";
-import { RescheduleModal } from "@/components/RescheduleModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -50,7 +49,6 @@ export default function MyAppointments() {
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [dateFilter, setDateFilter] = useState("all");
 
-  const [rescheduleData, setRescheduleData] = useState<{ id: string; date: string } | null>(null);
 
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
@@ -240,7 +238,7 @@ export default function MyAppointments() {
 									<SelectContent>
 										<SelectItem value="all">Todos os Status</SelectItem>
 										<SelectItem value="pendente">Pendente</SelectItem>
-										<SelectItem value="aguardando_cliente">Reajuste</SelectItem>
+										
 										<SelectItem value="confirmado">Confirmado</SelectItem>
 										<SelectItem value="finalizado">Concluído</SelectItem>
 										<SelectItem value="cancelado">Cancelado</SelectItem>
@@ -295,7 +293,7 @@ export default function MyAppointments() {
 						filteredAppointments.map((appointment) => {
 							const StatusIcon = statusIcons[appointment.status as keyof typeof statusIcons] || Clock3;
 							const statusColorsUpdated: any = { ...statusColors, aguardando_cliente: "bg-blue-100 text-blue-800 border-blue-200" };
-							const statusLabelsUpdated: any = { ...statusLabels, aguardando_cliente: "Confirme o Reajuste" };
+							const statusLabelsUpdated: any = { ...statusLabels, aguardando_cliente: "Aguardando Cliente" };
 							
 							return (
 								<Card key={appointment.id} className="border-border/50 bg-card/50 backdrop-blur-sm hover:shadow-lg transition-shadow">
@@ -381,30 +379,6 @@ export default function MyAppointments() {
 														<Download className="w-3 h-3 mr-1" />
 														Comprovante
 													</Button>
-													{/* Reajuste Button */}
-													{(appointment.status === 'pendente' || appointment.status === 'confirmado') && (
-														<Button
-															variant="outline"
-															size="sm"
-															onClick={() => setRescheduleData({ id: appointment.id, date: appointment.data_hora })}
-															className={`w-full mt-2 ${isMobile ? 'text-xs' : 'text-sm'} border-blue-500/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20`}
-														>
-															<ArrowRightLeft className="w-3 h-3 mr-1" />
-															Remarcar / Reajustar
-														</Button>
-													)}
-													{/* Confirmar Reajuste do Barbeiro */}
-													{appointment.status === 'aguardando_cliente' && (
-														<Button
-															variant="default"
-															size="sm"
-															onClick={() => handleConfirmAppointment(appointment.id)}
-															className={`w-full mt-2 ${isMobile ? 'text-xs' : 'text-sm'} bg-green-500 hover:bg-green-600`}
-														>
-															<CheckCircle className="w-3 h-3 mr-1" />
-															Aprovar Reajuste
-														</Button>
-													)}
 													{/* Cancel Button */}
 													{(appointment.status === 'pendente' || appointment.status === 'confirmado' || appointment.status === 'aguardando_cliente') && (
 														<Button
@@ -441,14 +415,6 @@ export default function MyAppointments() {
 				)}
 			</div>
 
-      <RescheduleModal 
-        isOpen={!!rescheduleData}
-        onOpenChange={(open) => {
-          if (!open) setRescheduleData(null);
-        }}
-        appointmentId={rescheduleData?.id || null}
-        currentDate={rescheduleData?.date || null}
-      />
 		</div>
 	);
 }

@@ -11,7 +11,7 @@ import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { Link, useNavigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useResponsive, useResponsiveClasses } from "@/hooks/use-mobile";
-import { RescheduleModal } from "@/components/RescheduleModal";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,9 +113,8 @@ export default function Dashboard() {
   const [isPaused, setIsPaused] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [pauseData, setPauseData] = useState<PauseData>({ inicio: '', fim: '', motivo: '' });
-  const [rescheduleData, setRescheduleData] = useState<{ id: string; date: string } | null>(null);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [isOwnerEmployee, setIsOwnerEmployee] = useState(false);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
 
   // --- React Query ---
   const { data, isLoading, refetch } = useQuery({
@@ -126,6 +125,18 @@ export default function Dashboard() {
     gcTime: 0, // Não manter cache
     refetchOnWindowFocus: true, // Refetch quando a janela ganhar foco
     refetchOnMount: true, // Sempre refetch ao montar
+  });
+
+  // Escutar alterações na tabela de agendamentos para a barbeariaAtual
+  useRealtimeSubscription({
+    channelName: 'agendamentos-barber-channel',
+    table: 'agendamentos',
+    filter: data?.barbeariaAtual?.id ? `barbearia_id=eq.${data.barbeariaAtual.id}` : undefined,
+    onUpdate: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
+    },
+    enabled: !!data?.barbeariaAtual?.id,
+    delay: 1000
   });
 
   const updateStatusMutation = useMutation({
@@ -187,7 +198,7 @@ export default function Dashboard() {
       
       const { data, error } = await supabase
         .from('funcionarios')
-        .select('id, barbearia_id, is_owner')
+        .select('id, barbearia_id, is_owner, comissao_percentual')
         .eq('user_id', user.id)
         .single();
       
@@ -409,10 +420,14 @@ export default function Dashboard() {
         return dataAg.toDateString() === hoje.toDateString() && ag.status !== 'cancelado';
     });
 
-    const receitaMes = todosAgendamentos.filter((ag: any) => {
+    const receitaTotalMes = todosAgendamentos.filter((ag: any) => {
         const dataAg = new Date(ag.data_hora);
         return dataAg >= inicioMes && dataAg <= fimMes && ag.status === 'finalizado';
     }).reduce((total: number, ag: any) => total + (ag.servicos?.valor || 0), 0);
+
+    const receitaMes = (role === 'funcionario' && currentFuncionario?.comissao_percentual)
+      ? receitaTotalMes * (currentFuncionario.comissao_percentual / 100)
+      : receitaTotalMes;
 
       const contagemServicos = todosAgendamentos
       .filter((ag: any) => ag.status !== 'cancelado' && ag.servicos)
@@ -441,7 +456,7 @@ export default function Dashboard() {
     };
   }, [data, currentFuncionario, role]);
 
-  const handleUpdateStatus = (appointmentId: string, status: 'finalizado' | 'cancelado') => {
+  const handleUpdateStatus = (appointmentId: string, status: 'pendente' | 'confirmado' | 'finalizado' | 'cancelado') => {
     updateStatusMutation.mutate({ appointmentId, status });
   };
 
@@ -785,9 +800,6 @@ export default function Dashboard() {
                                 Finalizar
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => setRescheduleData({ id: appointment.id, date: appointment.data_hora })}>
-                              Remarcar / Reajustar
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleUpdateStatus(appointment.id, 'cancelado')}>
                               Cancelar
                             </DropdownMenuItem>
@@ -1107,15 +1119,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      <RescheduleModal 
-        isOpen={!!rescheduleData}
-        onOpenChange={(open) => {
-          if (!open) setRescheduleData(null);
-        }}
-        appointmentId={rescheduleData?.id || null}
-        currentDate={rescheduleData?.date || null}
-      />
     </DashboardLayout>
   );
 }

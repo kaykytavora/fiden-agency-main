@@ -160,7 +160,7 @@ export const getUpcomingAppointments = async (userId: string) => {
 		)
 		.eq("user_id", userId)
 		.gte("data_hora", now)
-		.in("status", ["pendente", "confirmado"]) // Filtra apenas agendamentos ativos
+		.in("status", ["pendente", "confirmado", "aguardando_cliente"]) // Filtra apenas agendamentos ativos
 		.order("data_hora", { ascending: true });
 
 	if (error) {

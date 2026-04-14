@@ -89,6 +89,11 @@ const adminMenuItems = [
 
 const funcionarioMenuItems = [
   {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: BarChart3,
+  },
+  {
     title: "Minha Agenda",
     url: "/dashboard/agenda",
     icon: CalendarClock,
