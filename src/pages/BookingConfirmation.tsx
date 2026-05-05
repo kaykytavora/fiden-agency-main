@@ -35,7 +35,6 @@ const BookingConfirmation = () => {
 
   const downloadConfirmation = async () => {
     try {
-      console.log('Dados do booking para PDF:', bookingData);
 
       // Converter dados do booking para formato esperado pelo PDFGenerator
       const appointmentData = {
